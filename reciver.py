@@ -19,8 +19,7 @@ from config import (
 
 #PORT 9
 
-##Set-Up##
-# ตั้งค่า Wi-Fi เป็นโหมด STATION
+#######------------------------Set-Up--------------------------#####################
 wifi = network.WLAN(network.STA_IF)
 wifi.active(True)
 esp = espnow.ESPNow()
@@ -47,7 +46,8 @@ graph_data_sound = [32] * 64
 buzzer = PWM(Pin(5))
 zone = ""
 change_zone = [True,zone]
-#########mqtt##########
+              
+#########----------------------------mqtt------------------------------------##########
 
 TOPIC_HR = f'{TOPIC_PREFIX}/HR'
 TOPIC_MIC = f'{TOPIC_PREFIX}/MIC'
@@ -75,12 +75,6 @@ def connect_wifi():
     print('\nWiFi connected.')
     
 def mqtt_callback(T, msg):
-#     if Topic.decode() == TOPIC_oled:
-#         try:
-#             oled.fill(0)
-#             oled.show()   
-#         except ValueError:
-#             pass
     global status_oled,status_buzzer
     print(type(T),type(msg),msg,T)
     payload = int(msg)
@@ -97,29 +91,167 @@ def mqtt_callback(T, msg):
             status_buzzer = "OFF"
     
     
-
-
-    
-
-
 def connect_mqtt():
     print(f'Connecting to MQTT broker at {MQTT_BROKER}.')
     mqtt.connect()
     mqtt.set_callback(mqtt_callback)
     mqtt.subscribe(TOPIC_OLED)
     mqtt.subscribe(TOPIC_BUZZER)
-    
-#     mqtt.subscribe(TOPIC_HR)
-#     mqtt.subscribe(TOPIC_MIC)
-#     mqtt.subscribe(TOPIC_LDR)
     print('MQTT broker connected.')
 
 
 
         
-#########################################################
+
+
+############################################################----sound----########
         
-##################-----emote-----####################################
+
+def playsound_happy():
+    global buzzer 
+    notes = {
+        "C4": 261, "D4": 520, "E4": 330, "F4": 349, "G4": 392,
+        "A4": 440, "B4": 494 , "F":800 , "A": 850
+    }
+
+    melody = [("F", 0.1),("A", 0.1)]
+
+    for note, duration in melody:
+        buzzer.freq(notes[note])
+        buzzer.duty(100)
+        time.sleep(duration)
+        buzzer.duty(0) 
+        time.sleep(0.1) 
+
+    
+    
+    
+def playsound_normal():
+    global buzzer 
+    buzzer = PWM(Pin(5))
+    notes = {
+        "C4": 261, "D4": 520, "E4": 330, "F4": 349, "G4": 392,
+        "A4": 440, "B4": 494
+    }
+
+    melody = [("C4", 0.2),("D4", 0.2)]
+
+    for note, duration in melody:
+        buzzer.freq(notes[note])
+        buzzer.duty(512)
+        time.sleep(duration) 
+        buzzer.duty(0) 
+        time.sleep(0.1)
+
+
+def playsound_scary():
+    global buzzer 
+    buzzer = PWM(Pin(5))
+    notes = {
+        "C4": 261, "D4": 520, "E4": 250, "F4": 220, "G4": 100,
+        "A4": 440, "B4": 494
+    }
+
+    melody = [("E4", 0.2), ("F4", 0.2),("G4", 0.3)]
+
+    for note, duration in melody:
+        buzzer.freq(notes[note])
+        buzzer.duty(500) 
+        time.sleep(duration) 
+        buzzer.duty(0) 
+        time.sleep(0.1)
+
+
+def playsound_shock():
+    global buzzer 
+    buzzer = PWM(Pin(5))
+    notes = {
+        "C4": 261, "D4": 520, "E4": 700, "F4": 220, "G4": 100,
+        "A4": 440, "B4": 494
+    }
+
+    melody = [("E4", 0.2), ("E4", 0.2),("E4", 0.2),("E4", 0.2),("E4", 0.2)]
+
+    for note, duration in melody:
+        buzzer.freq(notes[note])
+        buzzer.duty(500) 
+        time.sleep(duration)
+        buzzer.duty(0) 
+        time.sleep(0.1)
+
+#########################-----------oled-----------#################################
+
+def graph_hr(hr, name, a):
+    global graph_data_hr
+    display.fill(0)
+    if hr >= 20000:
+        pixel_value = int(63 - ((hr - 28000) * 63 / (33000 - 28000)))
+
+        pixel_value = max(0, min(63, pixel_value))
+
+        graph_data_hr.pop(0)
+        graph_data_hr.append(pixel_value)
+        
+        for x in range(1, 127):
+            display.line(x - 1, graph_data_hr[x - 1], x, graph_data_hr[x], 1)
+
+        display.text(f'{name}: {a}', 0, 2, 1)
+        display.show()
+    else:
+        text = "NO FINGER"
+        text_x = (display.width - len(text) * 8) // 2
+        text_y = (display.height // 2) - 4
+        display.fill(0)
+        display.text(text, text_x, text_y, 1)
+        display.show()
+
+
+
+def graph_sound(hr, sound_value, name):
+    global graph_data_sound
+    display.fill(0)
+    if hr >= 20000:
+        db_value = int(((sound_value - 120) * 63) / (150 - 120))
+        db_value = max(0, min(db_value, 63))
+
+        if len(graph_data_sound) >= 63:
+            graph_data_sound.pop(0)
+        graph_data_sound.append(db_value)
+
+        for x in range(1, len(graph_data_sound)):
+            display.line(x - 1, 64 - graph_data_sound[x - 1], x, 64 - graph_data_sound[x], 1)
+
+        display.text(f'{name}: {sound_value} ', 0, 2, 1)
+        display.show()
+    else:
+        text = "NO FINGER"
+        text_x = (display.width - len(text) * 8) // 2
+        text_y = (display.height // 2) - 4
+        display.fill(0)
+        display.text(text, text_x, text_y, 1)
+        display.show()
+        
+        
+        
+def draw_emote(hr, emote, x_offset=20, y_offset=5):
+    display.fill(0)
+    if hr >= 20000:
+        for y, row in enumerate(emote):
+            for x, pixel in enumerate(row):
+                if pixel == "X":
+                    for dy in range(SCALE):
+                        for dx in range(SCALE):
+                            display.pixel(x * SCALE + dx + x_offset, y * SCALE + dy + y_offset, 1)
+        display.show()
+    else:
+        text = "NO FINGER"
+        text_x = (display.width - len(text) * 8) // 2
+        text_y = (display.height // 2) - 4
+        display.fill(0)
+        display.text(text, text_x, text_y, 1)
+        display.show()
+
+
 normal_face = [
     "       XXXXXXX       ",
     "      X       X      ",
@@ -173,154 +305,6 @@ scared_face = [
 ]
 SCALE = 4  
 
-def draw_emote(emote, x_offset=20, y_offset=5):
-    display.fill(0)  # ล้างหน้าจอ
-    for y, row in enumerate(emote):
-        for x, pixel in enumerate(row):
-            if pixel == "X":
-                for dy in range(SCALE):
-                    for dx in range(SCALE):
-                        display.pixel(x * SCALE + dx + x_offset, y * SCALE + dy + y_offset, 1)
-    display.show()
-
-
-############################################################----sound----#####
-        
-
-def playsound_happy():
-    global buzzer 
-    notes = {
-        "C4": 261, "D4": 520, "E4": 330, "F4": 349, "G4": 392,
-        "A4": 440, "B4": 494 , "F":800 , "A": 850
-    }
-
-    # ลำดับโน้ตและความยาวที่ใช้สำหรับแจ้งเตือน
-    melody = [("F", 0.1),("A", 0.1)]
-
-    # เล่นโน้ตจาก Melody
-    for note, duration in melody:
-        buzzer.freq(notes[note])  # กำหนดความถี่
-        buzzer.duty(100)  # ตั้งค่าความดังเสียง
-        time.sleep(duration)  # เวลาของโน้ต
-        buzzer.duty(0)  # ปิดเสียงระหว่างโน้ต
-        time.sleep(0.1)  # เวลาห่างระหว่างโน้ต
-
-    
-    
-    
-def playsound_normal():
-    global buzzer 
-    buzzer = PWM(Pin(5))
-    notes = {
-        "C4": 261, "D4": 520, "E4": 330, "F4": 349, "G4": 392,
-        "A4": 440, "B4": 494
-    }
-
-    # ลำดับโน้ตและความยาวที่ใช้สำหรับแจ้งเตือน
-    melody = [("C4", 0.2),("D4", 0.2)]
-
-    # เล่นโน้ตจาก Melody
-    for note, duration in melody:
-        buzzer.freq(notes[note])  # กำหนดความถี่
-        buzzer.duty(512)  # ตั้งค่าความดังเสียง
-        time.sleep(duration)  # เวลาของโน้ต
-        buzzer.duty(0)  # ปิดเสียงระหว่างโน้ต
-        time.sleep(0.1)  # เวลาห่างระหว่างโน้ต
-
-
-def playsound_scary():
-    global buzzer 
-    buzzer = PWM(Pin(5))
-    notes = {
-        "C4": 261, "D4": 520, "E4": 250, "F4": 220, "G4": 100,
-        "A4": 440, "B4": 494
-    }
-
-    # ลำดับโน้ตและความยาวที่ใช้สำหรับแจ้งเตือน
-    melody = [("E4", 0.2), ("F4", 0.2),("G4", 0.3)]
-
-    # เล่นโน้ตจาก Melody
-    for note, duration in melody:
-        buzzer.freq(notes[note])  # กำหนดความถี่
-        buzzer.duty(500)  # ตั้งค่าความดังเสียง
-        time.sleep(duration)  # เวลาของโน้ต
-        buzzer.duty(0)  # ปิดเสียงระหว่างโน้ต
-        time.sleep(0.1)  # เวลาห่างระหว่างโน้ต
-
-def playsound_shock():
-    global buzzer 
-    buzzer = PWM(Pin(5))
-    notes = {
-        "C4": 261, "D4": 520, "E4": 700, "F4": 220, "G4": 100,
-        "A4": 440, "B4": 494
-    }
-
-    # ลำดับโน้ตและความยาวที่ใช้สำหรับแจ้งเตือน
-    melody = [("E4", 0.2), ("E4", 0.2),("E4", 0.2),("E4", 0.2),("E4", 0.2)]
-
-    # เล่นโน้ตจาก Melody
-    for note, duration in melody:
-        buzzer.freq(notes[note])  # กำหนดความถี่
-        buzzer.duty(500)  # ตั้งค่าความดังเสียง
-        time.sleep(duration)  # เวลาของโน้ต
-        buzzer.duty(0)  # ปิดเสียงระหว่างโน้ต
-        time.sleep(0.1)  # เวลาห่างระหว่างโน้ต
-
-########################################################3##
-
-def graph_hr(hr, name, a):
-    global graph_data_hr
-    display.fill(0)
-    if hr >= 20000:
-        # ปรับช่วงค่า hr จาก 28000-32000 ให้เป็นช่วงพิกเซล 0-63
-        pixel_value = int(63 - ((hr - 27000) * 63 / (32000 - 28000)))
-
-        # ป้องกันค่าที่เกินขอบเขตของหน้าจอ (0-63)
-        pixel_value = max(0, min(63, pixel_value))
-
-        # อัปเดตกราฟ
-        graph_data_hr.pop(0)
-        graph_data_hr.append(pixel_value)
-        
-        # วาดกราฟ
-        for x in range(1, 127):
-            display.line(x - 1, graph_data_hr[x - 1], x, graph_data_hr[x], 1)
-
-        # แสดงชื่อและค่าปัจจุบัน
-        display.text(f'{name}: {a}', 0, 2, 1)
-        display.show()
-    else:
-        text = "NO FINGER"
-
-        # ใช้ display.width และ display.height เป็นตัวแปร ไม่ต้องใส่วงเล็บ ()
-        text_x = (display.width - len(text) * 8) // 2  # ใช้ 8 px แทน 6 px เพื่อให้ข้อความใหญ่ขึ้น
-        text_y = (display.height // 2) - 4  # -4 เพื่อให้ตรงกลางจอมากขึ้น
-
-        display.fill(0)  # เคลียร์หน้าจอ
-        display.text(text, text_x, text_y, 1)  # แสดงข้อความ
-        display.show()  # อัปเดตหน้าจอ
-
-
-
-def graph_sound(sound_value, name):
-    global graph_data_sound
-    display.fill(0)
-
-    # ปรับการคำนวณ db_value ให้ค่า sound_value สูงขึ้นแล้ว db_value สูงขึ้นตาม
-    db_value = int(((sound_value - 120) * 63) / (150 - 120))
-    db_value = max(0, min(db_value, 63))  # จำกัดค่าให้อยู่ในช่วง 0-63
-
-    if len(graph_data_sound) >= 63:
-        graph_data_sound.pop(0)  # ลบค่าตัวแรกออกเพื่อรักษาขนาด
-    graph_data_sound.append(db_value)
-
-    for x in range(1, len(graph_data_sound)):
-        display.line(x - 1, 64 - graph_data_sound[x - 1], x, 64 - graph_data_sound[x], 1)
-
-    display.text(f'{name}: {sound_value} dB', 0, 2, 1)
-    display.show()
-
-
     
 #####################---iqr-----############################################################
 debounce_timer = Timer(0)
@@ -373,7 +357,7 @@ while True:
     if mode == 0:
         name = "heart rate"
         if status_oled =="ON":
-            graph_hr(redValue, name,avg)
+            graph_hr(redValue, name,int(heartrate))
         elif status_oled =="OFF":
             display.fill(0)
             display.show()
@@ -382,7 +366,7 @@ while True:
     elif mode == 1:
         name = "sound"
         if status_oled =="ON":
-            graph_sound(sound_value, name)
+            graph_sound(redValue, sound_value, name)
         elif status_oled =="OFF":
             display.fill(0)
             display.show()
@@ -391,11 +375,11 @@ while True:
     elif mode == 2:
         if status_oled =="ON":  
             if redValue <= 30000:
-                draw_emote(happy_face)
+                draw_emote(redValue, happy_face)
             elif 30000 < redValue <= 32000:
-                draw_emote(normal_face)
+                draw_emote(redValue, normal_face)
             elif redValue > 32000:
-                draw_emote(scared_face)
+                draw_emote(redValue, scared_face)
         elif status_oled =="OFF":
             display.fill(0)
             display.show() 
@@ -411,7 +395,7 @@ while True:
             
         if change_zone[0] == True:
             if status_buzzer =="ON" :
-                playsound_shock()
+                 playsound_shock()
             change_zone[0] = False
     
     
@@ -460,17 +444,24 @@ while True:
         green.value(0)
         red.value(1)
         yellow.value(0)
-    
-
 
     else:
         zone = "not start"
     
-    print(f"Zone: {zone}, Mode: {mode}, Red: {redValue}, IR: {irValue}, dB:{sound_value}, oled: {status_oled}, buzzer: {status_buzzer}, current_paylod:{payload}")
-    counter+=1
-#     print(counter)
+#     print(f"Zone: {zone}, Mode: {mode}, Red: {redValue}, IR: {irValue}, dB:{sound_value}, oled: {status_oled}, buzzer: {status_buzzer}, current_paylod:{payload}")
+#     print(counter)    
+#     counter+=1
     mqtt.publish(TOPIC_HR, str(redValue))
     mqtt.publish(TOPIC_MIC, str(sound_value))
-    mqtt.publish(TOPIC_IR, str(irValue))
+
     sleep(0.2)
+
+    
+
+
+
+
+
+
+
 
